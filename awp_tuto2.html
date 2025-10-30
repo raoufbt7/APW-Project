@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Attendance System – Tutorial 2</title>
+<style>
+  body { font-family: Arial, sans-serif; margin:0; background:#f3f3f3; }
+  .navbar { background:#333; overflow:hidden; }
+  .navbar a { float:left; color:#fff; padding:14px 18px; text-decoration:none; }
+  .navbar a:hover { background:#575757; }
+  .container { padding:20px; }
+
+  table { border-collapse:collapse; width:100%; background:#fff; }
+  th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:14px; }
+  th { background:#e0e0e0; }
+
+  form { background:#fff; padding:15px; width:420px; border:1px solid #ccc; }
+  label { display:block; margin-top:10px; text-align:left; }
+  input[type="text"], input[type="email"]{ width:95%; padding:5px; margin-top:5px; box-sizing:border-box; }
+  input[type="submit"]{ margin-top:15px; padding:8px 16px; background:#333; color:white; border:none; cursor:pointer; }
+  input[type="submit"]:hover{ background:#575757; }
+  span.error{ color:red; font-size:0.9em; display:block; }
+
+  .low { background:#d7f7d0; }     /* <3 absences */
+  .medium { background:#fff6b2; }  /* 3–4 absences */
+  .high { background:#f5b2b2; }    /* ≥5 absences */
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a href="#home">Home</a>
+  <a href="#attendance">Attendance</a>
+  <a href="#add">Add Student</a>
+  <a href="#reports">Reports</a>
+</div>
+
+<div class="container">
+
+<h2 id="attendance">Exercise 1 : Attendance Table</h2>
+
+<table id="attendanceTable">
+  <tr>
+    <th>Student ID</th>
+    <th>Last Name</th>
+    <th>First Name</th>
+    <th colspan="6">Sessions (✓ = Present)</th>
+    <th>Absences</th>
+    <th colspan="6">Participation (P1–P6)</th>
+  </tr>
+
+  <tr>
+    <td>1001</td><td>Boukhalfa</td><td>Amine</td>
+    <td><input type="checkbox" ></td>
+    <td><input type="checkbox" ></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+  </tr>
+
+  <tr>
+    <td>1002</td><td>Saidi</td><td>Rania</td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+  </tr>
+
+  <tr>
+    <td>1003</td><td>Djelloul</td><td>Yacine</td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+  </tr>
+</table>
+
+<h2 id="add">Exercise 2 : Add Student</h2>
+<form id="studentForm" novalidate>
+  <label>Student ID:
+    <input type="text" id="sid" pattern="[0-9]+" title="Numbers only">
+  </label>
+  <span id="sidError" class="error"></span>
+
+  <label>Last Name:
+    <input type="text" id="lname">
+  </label>
+  <span id="lnameError" class="error"></span>
+
+  <label>First Name:
+    <input type="text" id="fname">
+  </label>
+  <span id="fnameError" class="error"></span>
+
+  <label>Email:
+    <input type="email" id="email">
+  </label>
+  <span id="emailError" class="error"></span>
+
+  <input type="submit" value="Add Student">
+  </form>
+
+</div>
+
+<script>
+/* === Attendance color logic === */
+function updateRow(row){
+  const sessions = Array.from(row.querySelectorAll("td:nth-child(n+4):nth-child(-n+9) input"));
+  const absences = sessions.filter(cb => !cb.checked).length;
+  row.cells[9].textContent = absences + " Abs";
+  row.classList.remove("low","medium","high");
+
+  if(absences < 3){ row.classList.add("low"); }
+  else if(absences < 5){ row.classList.add("medium"); }
+  else { row.classList.add("high"); }
+}
+
+/* initial setup + checkbox listeners */
+const rows = document.querySelectorAll("#attendanceTable tr");
+rows.forEach((r,i)=>{
+  if(i>0){
+    updateRow(r);
+    r.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+      cb.addEventListener("change",()=>updateRow(r));
+    });
+  }
+});
+
+/* === Add Student Form === */
+const form = document.getElementById("studentForm");
+const sid = document.getElementById("sid");
+const lname = document.getElementById("lname");
+const fname = document.getElementById("fname");
+const email = document.getElementById("email");
+
+/* === Live validation (triggers instantly) === */
+sid.addEventListener("input", () => {
+  const err = document.getElementById("sidError");
+  if (!sid.value.match(/^[0-9]*$/)) err.textContent = "Numbers only.";
+  else err.textContent = "";
+});
+
+lname.addEventListener("input", () => {
+  const err = document.getElementById("lnameError");
+  if (!lname.value.match(/^[A-Za-z]*$/)) err.textContent = "Letters only.";
+  else err.textContent = "";
+});
+
+fname.addEventListener("input", () => {
+  const err = document.getElementById("fnameError");
+  if (!fname.value.match(/^[A-Za-z]*$/)) err.textContent = "Letters only.";
+  else err.textContent = "";
+});
+
+email.addEventListener("input", () => {
+  const err = document.getElementById("emailError");
+  if (email.value && !email.value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+    err.textContent = "Invalid email.";
+  else err.textContent = "";
+});
+
+/* === On submit (final check + add student) === */
+form.addEventListener("submit", function(e){
+  e.preventDefault();
+  document.querySelectorAll(".error").forEach(el=>el.textContent="");
+
+  let ok=true;
+
+  if(!/^[0-9]+$/.test(sid.value.trim())){
+    document.getElementById("sidError").textContent="Numbers only.";
+    ok=false;
+  }
+  if(!/^[A-Za-z]+$/.test(lname.value.trim())){
+    document.getElementById("lnameError").textContent="Letters only.";
+    ok=false;
+  }
+  if(!/^[A-Za-z]+$/.test(fname.value.trim())){
+    document.getElementById("fnameError").textContent="Letters only.";
+    ok=false;
+  }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())){
+    document.getElementById("emailError").textContent="Invalid email.";
+    ok=false;
+  }
+  if(!ok) return;
+
+  const table=document.getElementById("attendanceTable");
+  const row=table.insertRow(-1);
+
+  row.insertCell(0).textContent=sid.value.trim();
+  row.insertCell(1).textContent=lname.value.trim();
+  row.insertCell(2).textContent=fname.value.trim();
+
+  for(let i=0;i<6;i++){
+    const c=row.insertCell(3+i);
+    const box=document.createElement("input");
+    box.type="checkbox";
+    box.addEventListener("change",()=>updateRow(row));
+    c.appendChild(box);
+  }
+
+  row.insertCell(9).textContent="0 Abs";
+
+  for(let i=0;i<6;i++){
+    const c=row.insertCell(10+i);
+    const box=document.createElement("input");
+    box.type="checkbox";
+    c.appendChild(box);
+  }
+
+  updateRow(row);
+  form.reset();
+  alert("Student added successfully!");
+});
+</script>
