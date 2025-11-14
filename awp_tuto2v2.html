@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Attendance System</title>
+
+<style>
+body { font-family: Arial, sans-serif; margin:0; background:#f3f3f3; }
+.navbar { background:#333; overflow:hidden; }
+.navbar a { float:left; color:#fff; padding:14px 18px; text-decoration:none; }
+.navbar a:hover { background:#575757; }
+.container { padding:20px; }
+
+table { width:100%; border-collapse:collapse; background:white; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+th { background:#e0e0e0; }
+
+.low { background:#d7f7d0; }
+.medium { background:#fff6b2; }
+.high { background:#f5b2b2; }
+
+button, input[type="submit"]{
+  background:#333; color:white; padding:8px 14px; border:none; border-radius:6px;
+  cursor:pointer; transition:.3s; margin:3px;
+}
+button:hover, input[type="submit"]:hover { background:#575757; transform:translateY(-2px); }
+
+input[type="text"], input[type="email"] {
+  width:95%; padding:6px; margin-top:4px; border-radius:6px; border:1px solid #aaa;
+}
+#search { width:220px; }
+
+form { background:white; width:420px; padding:15px; border-radius:6px; border:1px solid #ccc; }
+label { display:block; margin-top:8px; }
+span.error { color:red; font-size:13px; display:block; }
+
+#sortMessage { margin-top:8px; font-weight:bold; color:#444; }
+
+#attendanceTable tr { transition: background-color .5s; }
+
+</style>
+</head>
+<body>
+
+<div class="navbar">
+  <a href="#">Home</a>
+  <a href="#attendance">Attendance</a>
+  <a href="#add">Add Student</a>
+</div>
+
+<div class="container">
+
+<!-- Attendance Table -->
+<table id="attendanceTable">
+  <tr>
+    <th>ID</th><th>Last Name</th><th>First Name</th>
+    <th colspan="6">Sessions</th>
+    <th>Absences</th>
+    <th colspan="6">Participation</th>
+    <th>Message</th>
+  </tr>
+
+  <tr>
+    <td>1001</td><td>Boukhalfa</td><td>Amine</td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td>1002</td><td>Saidi</td><td>Rania</td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td></td>
+  </tr>
+
+  <tr>
+    <td>1003</td><td>Djelloul</td><td>Yacine</td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox" checked></td>
+    <td></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox" checked></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td><input type="checkbox"></td>
+    <td></td>
+  </tr>
+</table>
+
+<br>
+
+<button id="showReport">Show Report</button>
+<div id="reportSection" style="display:none; margin-top:10px;">
+<canvas id="reportChart" width="350" height="180"></canvas>
+</div>
+
+<br>
+
+<input type="text" id="search" placeholder="Search by name...">
+<button id="sortAbs">Sort by Absences</button>
+<button id="sortPar">Sort by Participation</button>
+<div id="sortMessage"></div>
+
+<br>
+
+<button id="highlightExcellent">Highlight Excellent Students</button>
+<button id="resetColors">Reset Colors</button>
+
+<br><br>
+
+<!-- Add Student Form -->
+<form id="studentForm">
+  <label>ID: <input type="text" id="sid"></label><span id="sidError" class="error"></span>
+  <label>Last Name: <input type="text" id="lname"></label><span id="lnameError" class="error"></span>
+  <label>First Name: <input type="text" id="fname"></label><span id="fnameError" class="error"></span>
+  <label>Email: <input type="email" id="email"></label><span id="emailError" class="error"></span>
+  <input type="submit" value="Add Student">
+</form>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script>
+function updateRow(row){
+  const sess=[...row.querySelectorAll("td:nth-child(n+4):nth-child(-n+9) input")];
+  const abs=sess.filter(cb=>!cb.checked).length;
+  row.cells[9].textContent=abs+" Abs";
+
+  const parts=[...row.querySelectorAll("td:nth-child(n+11):nth-child(-n+16) input")].filter(cb=>cb.checked).length;
+
+  let msg="";
+  if(abs>=5) msg="Excluded – too many absences – Participate more";
+  else if(abs>=3) msg="Warning – Low attendance – Participate more";
+  else if(parts>=4) msg="Good attendance – Excellent participation";
+  else msg="Good attendance – Try to participate more";
+
+  row.cells[16].textContent=msg;
+
+  row.classList.remove("low","medium","high");
+  if(abs<3) row.classList.add("low");
+  else if(abs<5) row.classList.add("medium");
+  else row.classList.add("high");
+}
+
+document.querySelectorAll("#attendanceTable tr").forEach((r,i)=>{
+  if(i>0){
+    updateRow(r);
+    r.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.addEventListener("change",()=>updateRow(r)));
+  }
+});
+
+/* Hover fix */
+$("#attendanceTable tr").hover(
+  function(){ $(this).css("background","#e7eef8"); },
+  function(){ $(this).css("background",""); updateRow(this); }
+);
+
+/* Click info */
+$("#attendanceTable tr").click(function(){
+  const n=$(this).find("td:nth-child(2)").text()+" "+$(this).find("td:nth-child(3)").text();
+  const a=$(this).find("td:nth-child(10)").text();
+  if(n.trim()) alert(n+" | "+a);
+});
+
+/* Add Student */
+studentForm.addEventListener("submit",e=>{
+  e.preventDefault();
+  sidError.textContent=lnameError.textContent=fnameError.textContent=emailError.textContent="";
+
+  if(!/^[0-9]+$/.test(sid.value)) return sidError.textContent="Numbers only.";
+  if(!/^[A-Za-z]+$/.test(lname.value)) return lnameError.textContent="Letters only.";
+  if(!/^[A-Za-z]+$/.test(fname.value)) return fnameError.textContent="Letters only.";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) return emailError.textContent="Invalid email.";
+
+  const r=attendanceTable.insertRow(-1);
+  r.insertCell(0).textContent=sid.value;
+  r.insertCell(1).textContent=lname.value;
+  r.insertCell(2).textContent=fname.value;
+
+  for(let i=0;i<6;i++){
+    const c=r.insertCell(3+i), b=document.createElement("input");
+    b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
+  }
+
+  r.insertCell(9).textContent="0 Abs";
+
+  for(let i=0;i<6;i++){
+    const c=r.insertCell(10+i), b=document.createElement("input");
+    b.type="checkbox"; c.appendChild(b);
+  }
+
+  r.insertCell(16).textContent="";
+  updateRow(r);
+  studentForm.reset();
+});
+
+/* Report Chart */
+showReport.onclick=()=>{
+  const rows=[...attendanceTable.rows].slice(1);
+  const total=rows.length;
+  const present=rows.filter(r=>parseInt(r.cells[9].textContent)<6).length;
+  const participated=rows.filter(r=>[...r.querySelectorAll("td:nth-child(n+11) input")].some(cb=>cb.checked)).length;
+
+  reportSection.style.display="block";
+  new Chart(reportChart,{
+    type:"bar",
+    data:{ labels:["Total","Present","Participated"],
+      datasets:[{ data:[total,present,participated], backgroundColor:["#fff6b2","#d7f7d0","#bde3ff"] }]
+    },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+};
+
+/* Highlight Excellent */
+highlightExcellent.onclick=()=>$("#attendanceTable tr").each(function(){
+  if(parseInt($(this).find("td:nth-child(10)").text())<3)
+    $(this).css("background","#c4ffcf");
+});
+resetColors.onclick=()=>location.reload();
+
+/* Search */
+$("#search").on("keyup",function(){
+  const v=this.value.toLowerCase();
+  $("#attendanceTable tr").filter(function(){
+    $(this).toggle($(this).text().toLowerCase().includes(v));
+  });
+});
+
+/* Sort */
+sortAbs.onclick=()=>{
+  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>parseInt(a.cells[9].textContent)-parseInt(b.cells[9].textContent));
+  $("#attendanceTable").append(r); sortMessage.textContent="Sorted by absences";
+};
+sortPar.onclick=()=>{
+  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>$(b).find("td:nth-child(n+11) input:checked").length-$(a).find("td:nth-child(n+11) input:checked").length);
+  $("#attendanceTable").append(r); sortMessage.textContent="Sorted by participation";
+};
+</script>
+
+</body>
+</html>
