@@ -1,13 +1,14 @@
 <?php
-// take_attendance.php
-// Loads students from students.json, shows Present/Absent form,
-// and on submit saves attendance_YYYY-MM-DD.json (or shows error if already exists).
-
 $studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'students.json';
+// Fallback to `student.json` if `students.json` is not present
+if (!file_exists($studentsFile)) {
+    $studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'student.json';
+}
 $date = date('Y-m-d');
 $attendanceFile = __DIR__ . DIRECTORY_SEPARATOR . "attendance_{$date}.json";
 
 $students = [];
+$studentsSource = basename($studentsFile);
 if (file_exists($studentsFile)) {
     $json = file_get_contents($studentsFile);
     $students = json_decode($json, true) ?: [];
@@ -65,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <?php endif; ?>
 
     <?php if (empty($students)): ?>
-        <p>No students found in <code>students.json</code>. Add students first.</p>
+        <p>No students found in <code><?= htmlspecialchars($studentsSource) ?></code>. Add students first.</p>
     <?php elseif ($error === '' && $message === ''): ?>
         <form method="post" action="">
             <table>
