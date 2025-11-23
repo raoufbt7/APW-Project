@@ -44,7 +44,7 @@ span.error { color:red; font-size:13px; display:block; }
 
 <div class="navbar">
   <a href="#">Home</a>
-  <a href="#attendance">Attendance</a>
+  <a href="take_attendance.php">Attendance</a>
   <a href="#add">Add Student</a>
 </div>
 
@@ -165,6 +165,29 @@ span.error { color:red; font-size:13px; display:block; }
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script>
+// Ensure important DOM elements are referenced explicitly
+const attendanceTable = document.getElementById('attendanceTable');
+const studentForm = document.getElementById('studentForm');
+const sid = document.getElementById('sid');
+const sidError = document.getElementById('sidError');
+const lname = document.getElementById('lname');
+const lnameError = document.getElementById('lnameError');
+const fname = document.getElementById('fname');
+const fnameError = document.getElementById('fnameError');
+const email = document.getElementById('email');
+const emailError = document.getElementById('emailError');
+const showReport = document.getElementById('showReport');
+const reportSection = document.getElementById('reportSection');
+const reportChart = document.getElementById('reportChart');
+const sortAbs = document.getElementById('sortAbs');
+const sortPar = document.getElementById('sortPar');
+const sortMessage = document.getElementById('sortMessage');
+const highlightExcellent = document.getElementById('highlightExcellent');
+const resetColors = document.getElementById('resetColors');
+const takeAttendanceBtn = document.getElementById('takeAttendanceBtn');
+const attendanceFormContainer = document.getElementById('attendanceFormContainer');
+const attendanceForm = document.getElementById('attendanceForm');
+const attendanceMsg = document.getElementById('attendanceMsg');
 function updateRow(row){
   const sess=[...row.querySelectorAll("td:nth-child(n+4):nth-child(-n+9) input")];
   const abs=sess.filter(cb=>!cb.checked).length;
@@ -216,25 +239,6 @@ studentForm.addEventListener("submit",e=>{
   if(!/^[A-Za-z]+$/.test(fname.value)) return fnameError.textContent="Letters only.";
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) return emailError.textContent="Invalid email.";
 
-  const r=attendanceTable.insertRow(-1);
-  r.insertCell(0).textContent=sid.value;
-  r.insertCell(1).textContent=lname.value;
-  r.insertCell(2).textContent=fname.value;
-
-  for(let i=0;i<6;i++){
-    const c=r.insertCell(3+i), b=document.createElement("input");
-    b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
-  }
-
-  r.insertCell(9).textContent="0 Abs";
-
-  for(let i=0;i<6;i++){
-    const c=r.insertCell(10+i), b=document.createElement("input");
-    b.type="checkbox"; c.appendChild(b);
-  }
-
-  r.insertCell(16).textContent="";
-  updateRow(r);
   // send the new student to server so it is stored in students.json
   const payload = { id: sid.value, lname: lname.value, fname: fname.value, email: email.value };
   postStudentToServer(payload).then(res=>{
@@ -244,6 +248,7 @@ studentForm.addEventListener("submit",e=>{
       return;
     }
     addStudentRowFromData(payload);
+    if(window.serverStudents && Array.isArray(window.serverStudents)) window.serverStudents.push(payload);
     studentForm.reset();
   }).catch(err=>{
     sidError.textContent='Network error saving student.';
