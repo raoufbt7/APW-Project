@@ -130,6 +130,20 @@ span.error { color:red; font-size:13px; display:block; }
 <div id="sortMessage"></div>
 
 <br>
+<!-- Take Attendance -->
+<div id="attendanceArea" style="margin-top:12px;">
+  <button id="takeAttendanceBtn">Take Attendance</button>
+  <div id="attendanceFormContainer" style="display:none; margin-top:10px;">
+    <form id="attendanceForm">
+      <table id="attendanceList" style="width:100%; max-width:700px; border-collapse:collapse; background:white;">
+        <tr><th style="text-align:left;">Student ID</th><th style="text-align:left;">Name</th><th>Present</th><th>Absent</th></tr>
+      </table>
+      <div style="margin-top:8px;"><input type="submit" value="Save Attendance"><span id="attendanceMsg" style="margin-left:12px; font-weight:bold;"></span></div>
+    </form>
+  </div>
+</div>
+
+<br>
 
 <button id="highlightExcellent">Highlight Excellent Students</button>
 <button id="resetColors">Reset Colors</button>
@@ -221,7 +235,126 @@ studentForm.addEventListener("submit",e=>{
 
   r.insertCell(16).textContent="";
   updateRow(r);
-  studentForm.reset();
+  // send the new student to server so it is stored in students.json
+  const payload = { id: sid.value, lname: lname.value, fname: fname.value, email: email.value };
+  postStudentToServer(payload).then(res=>{
+    if(!res.success){
+      if(res.error && res.error.indexOf('exists')!==-1) sidError.textContent='Student ID already exists on server.';
+      else sidError.textContent=res.error||'Could not save student to server.';
+      return;
+    }
+    addStudentRowFromData(payload);
+    studentForm.reset();
+  }).catch(err=>{
+    sidError.textContent='Network error saving student.';
+    console.error(err);
+  });
+});
+
+// Load students stored in localStorage and append them to the table
+function addStudentRowFromData(data){
+  const r = attendanceTable.insertRow(-1);
+  r.insertCell(0).textContent = data.id;
+  r.insertCell(1).textContent = data.lname;
+  r.insertCell(2).textContent = data.fname;
+  for(let i=0;i<6;i++){
+    const c=r.insertCell(3+i), b=document.createElement("input");
+    b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
+  }
+  r.insertCell(9).textContent="0 Abs";
+  for(let i=0;i<6;i++){
+    const c=r.insertCell(10+i), b=document.createElement("input");
+    b.type="checkbox"; c.appendChild(b);
+  }
+  r.insertCell(16).textContent="";
+  updateRow(r);
+}
+
+function getStoredStudents(){
+  try{ const s = localStorage.getItem('awp_students'); return s?JSON.parse(s):[]; }catch(e){ return []; }
+}
+function saveStoredStudents(arr){
+  try{ localStorage.setItem('awp_students', JSON.stringify(arr)); }catch(e){ console.error('Could not save students', e); }
+}
+
+async function postStudentToServer(data){
+  try{
+    const res = await fetch('students_api.php',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
+    });
+    return await res.json();
+  }catch(e){ return { success:false, error: 'Network error' }; }
+}
+
+// Load students from server and migrate any localStorage students
+(async function loadAndMigrate(){
+  try{
+    const r = await fetch('students_api.php');
+    const j = await r.json();
+    const serverStudents = (j && j.success && Array.isArray(j.students)) ? j.students : [];
+    serverStudents.forEach(s=>addStudentRowFromData(s));
+    // expose for attendance form building
+    window.serverStudents = serverStudents;
+
+    // migrate localStorage students into server
+    const local = getStoredStudents();
+    for(const s of local){
+      const exists = serverStudents.find(ss=>String(ss.id) === String(s.id));
+      if(!exists){
+        const res = await postStudentToServer(s);
+        if(res && res.success){ addStudentRowFromData(s); }
+      }
+    }
+    if(local.length) saveStoredStudents([]); // clear migrated local cache
+  }catch(err){
+    console.warn('Could not load server students, falling back to localStorage:', err);
+    const stored = getStoredStudents(); stored.forEach(addStudentRowFromData);
+  }
+})();
+
+// Build attendance form when requested
+takeAttendanceBtn.onclick = async () => {
+  attendanceFormContainer.style.display = 'block';
+  // ensure we have fresh students list
+  let students = window.serverStudents;
+  if (!students) {
+    try{ const r = await fetch('students_api.php'); const j=await r.json(); students=(j && j.success && Array.isArray(j.students))?j.students:[]; window.serverStudents=students; }catch(e){ students=[]; }
+  }
+  const tbl = document.getElementById('attendanceList');
+  // clear existing rows except header
+  Array.from(tbl.querySelectorAll('tr')).slice(1).forEach(r=>r.remove());
+  students.forEach(s=>{
+    const tr = document.createElement('tr');
+    const tdId = document.createElement('td'); tdId.style.textAlign='left'; tdId.textContent = s.id; tr.appendChild(tdId);
+    const tdName = document.createElement('td'); tdName.style.textAlign='left'; tdName.textContent = s.lname + ' ' + s.fname; tr.appendChild(tdName);
+    const tdP = document.createElement('td'); tdP.style.textAlign='center'; const rP = document.createElement('input'); rP.type='radio'; rP.name = `attendance[${s.id}]`; rP.value='present'; rP.checked=true; tdP.appendChild(rP); tr.appendChild(tdP);
+    const tdA = document.createElement('td'); tdA.style.textAlign='center'; const rA = document.createElement('input'); rA.type='radio'; rA.name = `attendance[${s.id}]`; rA.value='absent'; tdA.appendChild(rA); tr.appendChild(tdA);
+    tbl.appendChild(tr);
+  });
+};
+
+// Submit attendance to server
+attendanceForm.addEventListener('submit', async function(e){
+  e.preventDefault();
+  attendanceMsg.textContent = '';
+  const students = window.serverStudents || [];
+  const attendance = [];
+  students.forEach(s=>{
+    const sel = document.querySelector(`input[name="attendance[${s.id}]"]:checked`);
+    const status = sel ? sel.value : 'absent';
+    attendance.push({ student_id: String(s.id), status });
+  });
+  try{
+    const res = await fetch('attendance_api.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ attendance }) });
+    const j = await res.json();
+    if (j && j.success) {
+      attendanceMsg.style.color='green'; attendanceMsg.textContent = 'Attendance saved: ' + (j.file||'');
+      // disable form after save
+      Array.from(attendanceForm.querySelectorAll('input')).forEach(i=>i.disabled=true);
+    } else {
+      attendanceMsg.style.color='red'; attendanceMsg.textContent = j.error || 'Could not save attendance.';
+    }
+  }catch(err){ attendanceMsg.style.color='red'; attendanceMsg.textContent='Network error saving attendance.'; console.error(err); }
 });
 
 /* Report Chart */
