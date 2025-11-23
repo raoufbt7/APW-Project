@@ -284,7 +284,7 @@ function saveStoredStudents(arr){
 
 async function postStudentToServer(data){
   try{
-    const res = await fetch('students_api.php',{
+    const res = await fetch('student_api.php',{
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
     });
     return await res.json();
@@ -294,7 +294,7 @@ async function postStudentToServer(data){
 // Load students from server and migrate any localStorage students
 (async function loadAndMigrate(){
   try{
-    const r = await fetch('students_api.php');
+    const r = await fetch('student_api.php');
     const j = await r.json();
     const serverStudents = (j && j.success && Array.isArray(j.students)) ? j.students : [];
     serverStudents.forEach(s=>addStudentRowFromData(s));
@@ -323,7 +323,7 @@ takeAttendanceBtn.onclick = async () => {
   // ensure we have fresh students list
   let students = window.serverStudents;
   if (!students) {
-    try{ const r = await fetch('students_api.php'); const j=await r.json(); students=(j && j.success && Array.isArray(j.students))?j.students:[]; window.serverStudents=students; }catch(e){ students=[]; }
+  try{ const r = await fetch('student_api.php'); const j=await r.json(); students=(j && j.success && Array.isArray(j.students))?j.students:[]; window.serverStudents=students; }catch(e){ students=[]; }
   }
   const tbl = document.getElementById('attendanceList');
   // clear existing rows except header

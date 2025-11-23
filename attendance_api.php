@@ -2,7 +2,7 @@
 header('Content-Type: application/json; charset=utf-8');
 $date = date('Y-m-d');
 $attendanceFile = __DIR__ . DIRECTORY_SEPARATOR . "attendance_{$date}.json";
-$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'students.json';
+$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'student.json';
 
 $method = $_SERVER['REQUEST_METHOD'];
 if ($method !== 'POST') {

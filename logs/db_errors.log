@@ -1,0 +1,4 @@
+2025-11-23T12:01:55+00:00 - DB connection failed: SQLSTATE[HY000] [1049] Unknown database 'your_database'
+2025-11-23T12:06:10+00:00 - DB connection failed: SQLSTATE[HY000] [1049] Unknown database 'your_database'
+2025-11-23T12:06:13+00:00 - DB connection failed: SQLSTATE[HY000] [1049] Unknown database 'your_database'
+2025-11-23T12:20:26+00:00 - DB connection failed: SQLSTATE[HY000] [1049] Unknown database 'your_database'

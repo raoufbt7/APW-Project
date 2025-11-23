@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'students.json';
+$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'student.json';
 $method = $_SERVER['REQUEST_METHOD'];
 
 if ($method === 'GET') {
