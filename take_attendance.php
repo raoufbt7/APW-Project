@@ -16,6 +16,7 @@ if (file_exists($studentsFile)) {
 
 $message = '';
 $error = '';
+$savedFile = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (file_exists($attendanceFile)) {
         $error = 'Attendance for today has already been taken';
@@ -36,7 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($written === false) {
             $error = 'Could not write attendance file';
         } else {
-            $message = 'Attendance saved to ' . basename($attendanceFile);
+            $savedFile = basename($attendanceFile);
+            $message = 'Attendance saved to ' . $savedFile;
         }
     }
 }
@@ -60,6 +62,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h1>Take Attendance (<?= htmlspecialchars($date) ?>)</h1>
     <?php if ($message): ?>
         <div class="msg"><?= htmlspecialchars($message) ?></div>
+        <?php if ($savedFile): ?>
+            <div><a href="<?= htmlspecialchars($savedFile) ?>" target="_blank">Download <?= htmlspecialchars($savedFile) ?></a></div>
+        <?php endif; ?>
     <?php endif; ?>
     <?php if ($error): ?>
         <div class="err"><?= htmlspecialchars($error) ?></div>
