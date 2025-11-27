@@ -225,6 +225,32 @@ span.error { color:#e74c3c; font-size:13px; display:block; margin-top:5px; }
     </div>
 
     <div class="form-group">
+      <h4>Manage Sessions</h4>
+      <button id="deleteAllSessions" class="danger">Delete All Sessions</button>
+      <div id="deleteMsg" style="margin-top:10px; font-weight:bold;"></div>
+    </div>
+
+    <div class="form-group">
+      <h4>Select and Edit Session</h4>
+      <select id="editSessionSelect"><option value="">-- Select Session to Edit --</option></select>
+      <button id="confirmEditSession" class="success">Confirm Selection</button>
+      <div id="editSessionForm" style="display:none; margin-top:20px;">
+        <form id="updateSessionForm">
+          <div class="form-row">
+            <div><label>Session ID: <input type="number" id="edit_session_id" readonly></label></div>
+            <div><label>Course ID: <input type="number" id="edit_course_id"></label></div>
+            <div><label>Group ID: <input type="number" id="edit_group_id"></label></div>
+            <div><label>Professor ID: <input type="number" id="edit_opened_by"></label></div>
+            <div><label>Date: <input type="date" id="edit_date"></label></div>
+            <div><label>Status: <select id="edit_status"><option value="open">Open</option><option value="closed">Closed</option></select></label></div>
+          </div>
+          <button type="submit" class="success">Update Session</button>
+          <div id="updateMsg" style="margin-top:10px; font-weight:bold;"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="form-group">
       <h4>Session List</h4>
       <table id="sessionsTable">
         <thead><tr><th>ID</th><th>Course</th><th>Group</th><th>Date</th><th>Opened By</th><th>Status</th><th>Action</th></tr></thead>
@@ -296,6 +322,8 @@ function showTab(tabName) {
   // Load data for specific tabs
   if (tabName === 'students') loadStudentsTable();
   if (tabName === 'overview') updateOverviewStats();
+  if (tabName === 'attendance') populateSessionSelect();
+  if (tabName === 'sessions') populateEditSessionSelect();
 }
 
 // Load students into students table
@@ -381,6 +409,7 @@ const loadAttendanceBtn = document.getElementById('loadAttendanceBtn');
 let currentSessionId = localStorage.getItem('currentSessionId') || null;
 let currentAttendance = {};
 let sessionColumns = []; // Array to map column indices to session IDs
+let sessions = []; // Global sessions list for integration
 function updateRow(row){
   const presenceCb = row.cells[3].querySelector('input');
   const abs = presenceCb && !presenceCb.checked ? 1 : 0;
@@ -602,7 +631,7 @@ attendanceForm.addEventListener('submit', async function(e){
     try{
       const r = await fetch('create_session.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       const j = await r.json();
-      if(j && j.success){ sessionForm.reset(); fetchSessions(); }
+      if(j && j.success){ sessionForm.reset(); fetchSessions(); populateSessionSelect(); populateEditSessionSelect(); }
       else alert('Could not create session: ' + (j.error||'unknown'));
     }catch(err){ alert('Network or server error creating session'); console.error(err); }
   });
@@ -612,7 +641,7 @@ attendanceForm.addEventListener('submit', async function(e){
     try{
       const r = await fetch('close_session.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ session_id: id }) });
       const j = await r.json();
-      if(j && j.success){ fetchSessions(); }
+      if(j && j.success){ fetchSessions(); populateSessionSelect(); populateEditSessionSelect(); }
       else alert('Could not close session: ' + (j.error||'unknown'));
     }catch(err){ alert('Network or server error closing session'); console.error(err); }
   }
@@ -636,6 +665,93 @@ attendanceForm.addEventListener('submit', async function(e){
       return Promise.resolve(); // Ensure it returns a promise
     }catch(err){ console.error('Could not load sessions for select', err); return Promise.reject(err); }
   }
+
+  // Delete all sessions
+  document.getElementById('deleteAllSessions').addEventListener('click', async function(){
+    if(!confirm('Are you sure you want to delete all sessions? This action cannot be undone.')) return;
+    try{
+      const r = await fetch('delete_all_sessions.php', { method:'POST' });
+      const j = await r.json();
+      const msg = document.getElementById('deleteMsg');
+      if(j && j.success){
+        msg.style.color='green'; msg.textContent = j.message;
+        fetchSessions(); // Refresh sessions table
+        populateSessionSelect(); // Refresh attendance session select
+        populateEditSessionSelect(); // Refresh edit select
+      } else {
+        msg.style.color='red'; msg.textContent = j.error || 'Could not delete sessions.';
+      }
+    }catch(err){ console.error('Could not delete sessions', err); }
+  });
+
+  // Populate edit session select
+  async function populateEditSessionSelect(){
+    try{
+      const r = await fetch('list_sessions.php');
+      const j = await r.json();
+      const sessions = (j && j.success && Array.isArray(j.sessions)) ? j.sessions : [];
+      const select = document.getElementById('editSessionSelect');
+      select.innerHTML = '<option value="">-- Select Session to Edit --</option>';
+      sessions.forEach(s=>{
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `Session ${s.id} - Course ${s.course_id} - ${s.date}`;
+        select.appendChild(opt);
+      });
+    }catch(err){ console.error('Could not load sessions for edit select', err); }
+  }
+
+  // Confirm edit session
+  document.getElementById('confirmEditSession').addEventListener('click', async function(){
+    const select = document.getElementById('editSessionSelect');
+    const sessionId = select.value;
+    if(!sessionId) return alert('Please select a session to edit.');
+    try{
+      const r = await fetch('list_sessions.php');
+      const j = await r.json();
+      const sessions = (j && j.success && Array.isArray(j.sessions)) ? j.sessions : [];
+      const session = sessions.find(s => s.id == sessionId);
+      if(session){
+        document.getElementById('edit_session_id').value = session.id;
+        document.getElementById('edit_course_id').value = session.course_id;
+        document.getElementById('edit_group_id').value = session.group_id;
+        document.getElementById('edit_opened_by').value = session.opened_by;
+        document.getElementById('edit_date').value = session.date;
+        document.getElementById('edit_status').value = session.status;
+        document.getElementById('editSessionForm').style.display = 'block';
+      }
+    }catch(err){ console.error('Could not load session details', err); }
+  });
+
+  // Update session form
+  document.getElementById('updateSessionForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const payload = {
+      session_id: Number(document.getElementById('edit_session_id').value),
+      course_id: Number(document.getElementById('edit_course_id').value),
+      group_id: Number(document.getElementById('edit_group_id').value),
+      opened_by: Number(document.getElementById('edit_opened_by').value),
+      date: document.getElementById('edit_date').value,
+      status: document.getElementById('edit_status').value
+    };
+    try{
+      const r = await fetch('update_session.php', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const j = await r.json();
+      const msg = document.getElementById('updateMsg');
+      if(j && j.success){
+        msg.style.color='green'; msg.textContent = j.message;
+        fetchSessions(); // Refresh sessions table
+        populateSessionSelect(); // Refresh attendance session select
+        populateEditSessionSelect(); // Refresh edit select
+        document.getElementById('editSessionForm').style.display = 'none';
+      } else {
+        msg.style.color='red'; msg.textContent = j.error || 'Could not update session.';
+      }
+    }catch(err){ console.error('Could not update session', err); }
+  });
+
+  // Initial populate edit select
+  populateEditSessionSelect();
 
   // Load attendance for the selected session
   async function loadAllAttendance(){
