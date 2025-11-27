@@ -1,34 +1,43 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require __DIR__ . '/db_connect.php';
 
-$pdo = get_db_connection();
-if (!$pdo) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database connection failed']);
-    exit;
-}
+$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'student.json';
 
-$input = file_get_contents('php://input');
-$data = json_decode($input, true);
-if (!$data) $data = $_POST;
+$id = isset($_GET['id']) ? trim($_GET['id']) : '';
 
-$id = isset($data['id']) ? (int)$data['id'] : 0;
-if ($id <= 0) {
+if ($id === '') {
     http_response_code(400);
-    echo json_encode(['success' => false, 'error' => 'Missing or invalid id']);
+    echo json_encode(['success' => false, 'error' => 'Missing student ID']);
     exit;
 }
 
-try {
-    $stmt = $pdo->prepare('DELETE FROM students WHERE id = :id');
-    $stmt->execute([':id' => $id]);
-    if ($stmt->rowCount() === 0) {
-        echo json_encode(['success' => false, 'error' => 'No student deleted (id may not exist)']);
-    } else {
-        echo json_encode(['success' => true, 'deleted' => $id]);
-    }
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+$students = [];
+if (file_exists($studentsFile)) {
+    $json = file_get_contents($studentsFile);
+    $students = json_decode($json, true) ?: [];
 }
+
+$newStudents = [];
+$found = false;
+foreach ($students as $student) {
+    if ((string)$student['id'] !== (string)$id) {
+        $newStudents[] = $student;
+    } else {
+        $found = true;
+    }
+}
+
+if (!$found) {
+    http_response_code(404);
+    echo json_encode(['success' => false, 'error' => 'Student not found']);
+    exit;
+}
+
+$written = file_put_contents($studentsFile, json_encode($newStudents, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+if ($written === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Could not write students file']);
+    exit;
+}
+
+echo json_encode(['success' => true, 'message' => 'Student deleted successfully']);

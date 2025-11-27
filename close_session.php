@@ -1,13 +1,7 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require __DIR__ . '/db_connect.php';
 
-$pdo = get_db_connection();
-if (!$pdo) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database connection failed']);
-    exit;
-}
+$sessionsFile = __DIR__ . DIRECTORY_SEPARATOR . 'sessions.json';
 
 $input = file_get_contents('php://input');
 $data = json_decode($input, true);
@@ -20,15 +14,32 @@ if ($session_id <= 0) {
     exit;
 }
 
-try {
-    $stmt = $pdo->prepare('UPDATE attendance_sessions SET status = :status WHERE id = :id');
-    $stmt->execute([':status' => 'closed', ':id' => $session_id]);
-    if ($stmt->rowCount() === 0) {
-        echo json_encode(['success' => false, 'error' => 'No session updated (id may not exist)']);
-    } else {
-        echo json_encode(['success' => true, 'closed' => $session_id]);
-    }
-} catch (PDOException $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Database error: ' . $e->getMessage()]);
+$sessions = [];
+if (file_exists($sessionsFile)) {
+    $json = file_get_contents($sessionsFile);
+    $sessions = json_decode($json, true) ?: [];
 }
+
+$found = false;
+foreach ($sessions as &$session) {
+    if ($session['id'] == $session_id) {
+        $session['status'] = 'closed';
+        $found = true;
+        break;
+    }
+}
+
+if (!$found) {
+    http_response_code(404);
+    echo json_encode(['success' => false, 'error' => 'Session not found']);
+    exit;
+}
+
+$written = file_put_contents($sessionsFile, json_encode($sessions, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+if ($written === false) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => 'Could not write sessions file']);
+    exit;
+}
+
+echo json_encode(['success' => true, 'closed' => $session_id]);

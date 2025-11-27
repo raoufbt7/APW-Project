@@ -1,7 +1,7 @@
 <?php
 // index.php - Unified Student Management and Attendance
 $date = date('Y-m-d');
-$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'students.json';
+$studentsFile = __DIR__ . DIRECTORY_SEPARATOR . 'student.json';
 $attendanceFile = __DIR__ . DIRECTORY_SEPARATOR . "attendance_{$date}.json";
 
 // Navigation logic

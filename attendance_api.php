@@ -26,12 +26,6 @@ if ($method === 'GET') {
 
     // Handle batch attendance save (from form)
     if (isset($data['attendance']) && is_array($data['attendance'])) {
-        // For batch save, assume it's for a new session or update existing
-        // Since no session_id is provided, we need to create a new session or use a default
-        // For now, let's assume session_id is 1 or something, but better to require it
-        // Actually, the form should include session_id if it's for an existing session
-        // But for initial take attendance, perhaps create a new session
-        // To fix, let's add session_id to the form submission
         if (!isset($data['session_id'])) {
             echo json_encode(['success' => false, 'error' => 'Missing session_id for batch save']);
             exit;
