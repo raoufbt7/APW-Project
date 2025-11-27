@@ -186,9 +186,9 @@ span.error { color:#e74c3c; font-size:13px; display:block; margin-top:5px; }
         <thead>
           <tr>
             <th>ID</th><th>Last Name</th><th>First Name</th>
-            <th colspan="6">Presence</th>
+            <th>Presence</th>
             <th>Absences</th>
-            <th colspan="6">Participation</th>
+            <th>Participation</th>
             <th>Status</th>
           </tr>
         </thead>
@@ -380,24 +380,24 @@ const sessionSelect = document.getElementById('sessionSelect');
 const loadAttendanceBtn = document.getElementById('loadAttendanceBtn');
 let currentSessionId = localStorage.getItem('currentSessionId') || null;
 let currentAttendance = {};
+let sessionColumns = []; // Array to map column indices to session IDs
 function updateRow(row){
-  const sess=[...row.querySelectorAll("td:nth-child(n+4):nth-child(-n+9) input")];
-  const abs=sess.filter(cb=>!cb.checked).length;
-  row.cells[9].textContent=abs+" Abs";
+  const presenceCb = row.cells[3].querySelector('input');
+  const abs = presenceCb && !presenceCb.checked ? 1 : 0;
+  row.cells[4].textContent = abs + " Abs";
 
-  const parts=[...row.querySelectorAll("td:nth-child(n+11):nth-child(-n+16) input")].filter(cb=>cb.checked).length;
+  const participationCb = row.cells[5].querySelector('input');
+  const parts = participationCb && participationCb.checked ? 1 : 0;
 
-  let msg="";
-  if(abs>=5) msg="Excluded – too many absences – Participate more";
-  else if(abs>=3) msg="Warning – Low attendance – Participate more";
-  else if(parts>=4) msg="Good attendance – Excellent participation";
-  else msg="Good attendance – Try to participate more";
+  let msg = "";
+  if (abs >= 1) msg = "Absent – Participate more";
+  else if (parts >= 1) msg = "Present – Excellent participation";
+  else msg = "Present – Try to participate more";
 
-  row.cells[16].textContent=msg;
+  row.cells[6].textContent = msg;
 
-  row.classList.remove("low","medium","high");
-  if(abs<3) row.classList.add("low");
-  else if(abs<5) row.classList.add("medium");
+  row.classList.remove("low", "medium", "high");
+  if (abs === 0) row.classList.add("low");
   else row.classList.add("high");
 }
 
@@ -417,7 +417,7 @@ $("#attendanceTable tr").hover(
 /* Click info */
 $("#attendanceTable tr").click(function(){
   const n=$(this).find("td:nth-child(2)").text()+" "+$(this).find("td:nth-child(3)").text();
-  const a=$(this).find("td:nth-child(10)").text();
+  const a=$(this).find("td:nth-child(4)").text();
   if(n.trim()) alert(n+" | "+a);
 });
 
@@ -437,16 +437,21 @@ function addStudentRowFromData(data){
   }
   r.insertCell(1).textContent = lnameVal;
   r.insertCell(2).textContent = fnameVal;
-  for(let i=0;i<6;i++){
-    const c=r.insertCell(3+i), b=document.createElement("input");
-    b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
-  }
-  r.insertCell(9).textContent="0 Abs";
-  for(let i=0;i<6;i++){
-    const c=r.insertCell(10+i), b=document.createElement("input");
-    b.type="checkbox"; c.appendChild(b);
-  }
-  r.insertCell(16).textContent="";
+  // Presence checkbox
+  const presenceCell = r.insertCell(3);
+  const presenceCb = document.createElement("input");
+  presenceCb.type = "checkbox";
+  presenceCb.addEventListener("change", () => updateRow(r));
+  presenceCell.appendChild(presenceCb);
+  // Absences
+  r.insertCell(4).textContent = "0 Abs";
+  // Participation checkbox
+  const participationCell = r.insertCell(5);
+  const participationCb = document.createElement("input");
+  participationCb.type = "checkbox";
+  participationCell.appendChild(participationCb);
+  // Status
+  r.insertCell(6).textContent = "";
   updateRow(r);
 }
 
@@ -632,54 +637,59 @@ attendanceForm.addEventListener('submit', async function(e){
     }catch(err){ console.error('Could not load sessions for select', err); return Promise.reject(err); }
   }
 
-  // Load attendance for selected session
-  loadAttendanceBtn.addEventListener('click', async function(){
-    const sessionId = sessionSelect.value;
-    if(!sessionId) return alert('Please select a session');
-    currentSessionId = sessionId;
-    localStorage.setItem('currentSessionId', sessionId);
+  // Load attendance for the selected session
+  async function loadAllAttendance(){
     try{
-      const r = await fetch(`attendance_api.php?session_id=${sessionId}`);
+      const selectedSessionId = sessionSelect.value;
+      if(!selectedSessionId) return;
+
+      // Load attendance for the selected session
+      const r = await fetch(`attendance_api.php?session_id=${selectedSessionId}`);
       const j = await r.json();
+      const attendance = (j && j.success && Array.isArray(j.attendance)) ? j.attendance : [];
+
+      // Build currentAttendance as { studentId: { presence, participation } }
       currentAttendance = {};
-      if(j && j.success && Array.isArray(j.attendance)){
-        j.attendance.forEach(a=>{
-          currentAttendance[a.student_id] = { presence: a.presence, participation: a.participation };
-        });
-      }
+      attendance.forEach(att => {
+        currentAttendance[att.student_id] = { presence: att.presence, participation: att.participation };
+      });
+
       // Update checkboxes for all students
       const rows = attendanceTable.rows;
       for(let i=1; i<rows.length; i++){
         const row = rows[i];
         const studentId = row.cells[0].textContent;
         const att = currentAttendance[studentId] || { presence: 0, participation: 0 };
-        // Set presence checkbox (assuming first session column)
         const presenceCb = row.cells[3].querySelector('input');
         if(presenceCb) presenceCb.checked = att.presence == 1;
-        // Set participation checkbox (assuming first participation column)
-        const participationCb = row.cells[10].querySelector('input');
+        const participationCb = row.cells[5].querySelector('input');
         if(participationCb) participationCb.checked = att.participation == 1;
         updateRow(row);
       }
     }catch(err){ console.error('Could not load attendance', err); }
-  });
+  }
+
+  loadAttendanceBtn.addEventListener('click', loadAllAttendance);
 
   // Save attendance when checkbox changes
   attendanceTable.addEventListener('change', async function(e){
-    if(!currentSessionId || e.target.type !== 'checkbox') return;
+    if(e.target.type !== 'checkbox') return;
     const row = e.target.closest('tr');
     const studentId = row.cells[0].textContent;
+    const sessionId = sessionSelect.value;
+    if(!sessionId) return;
     const isPresence = row.cells[3].contains(e.target);
-    const isParticipation = row.cells[10].contains(e.target);
+    const isParticipation = row.cells[5].contains(e.target);
     if(!isPresence && !isParticipation) return;
-    const presence = isPresence ? (e.target.checked ? 1 : 0) : (currentAttendance[studentId]?.presence || 0);
-    const participation = isParticipation ? (e.target.checked ? 1 : 0) : (currentAttendance[studentId]?.participation || 0);
+    const studentAtt = currentAttendance[studentId] || { presence: 0, participation: 0 };
+    const presence = isPresence ? (e.target.checked ? 1 : 0) : studentAtt.presence;
+    const participation = isParticipation ? (e.target.checked ? 1 : 0) : studentAtt.participation;
     try{
       const res = await fetch('attendance_api.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-          session_id: currentSessionId,
+          session_id: sessionId,
           student_id: studentId,
           presence: presence,
           participation: participation
@@ -688,6 +698,7 @@ attendanceForm.addEventListener('submit', async function(e){
       const j = await res.json();
       if(j && j.success){
         currentAttendance[studentId] = { presence, participation };
+        updateRow(row);
       } else {
         alert('Could not save attendance: ' + (j.error || 'unknown'));
         // Revert checkbox
@@ -713,8 +724,8 @@ attendanceForm.addEventListener('submit', async function(e){
 showReport.onclick=()=>{
   const rows=[...attendanceTable.rows].slice(1);
   const total=rows.length;
-  const present=rows.filter(r=>parseInt(r.cells[9].textContent)<6).length;
-  const participated=rows.filter(r=>[...r.querySelectorAll("td:nth-child(n+11) input")].some(cb=>cb.checked)).length;
+  const present=rows.filter(r=>parseInt(r.cells[4].textContent) === 0).length;
+  const participated=rows.filter(r=>r.querySelector("td:nth-child(5) input") && r.querySelector("td:nth-child(5) input").checked).length;
 
   reportSection.style.display="block";
   new Chart(reportChart,{
@@ -728,7 +739,7 @@ showReport.onclick=()=>{
 
 /* Highlight Excellent */
 highlightExcellent.onclick=()=>$("#attendanceTable tr").each(function(){
-  if(parseInt($(this).find("td:nth-child(10)").text())<3)
+  if(parseInt($(this).find("td:nth-child(4)").text())<3)
     $(this).css("background","#c4ffcf");
 });
 resetColors.onclick=()=>location.reload();
@@ -751,11 +762,11 @@ $("#students .form-group input[id='search']").on("keyup",function(){
 
 /* Sort */
 sortAbs.onclick=()=>{
-  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>parseInt(a.cells[9].textContent)-parseInt(b.cells[9].textContent));
+  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>parseInt(a.cells[4].textContent)-parseInt(b.cells[4].textContent));
   $("#attendanceTable").append(r); sortMessage.textContent="Sorted by absences";
 };
 sortPar.onclick=()=>{
-  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>$(b).find("td:nth-child(n+11) input:checked").length-$(a).find("td:nth-child(n+11) input:checked").length);
+  const r=$("#attendanceTable tr").slice(1).get().sort((a,b)=>$(b).find("td:nth-child(6) input:checked").length-$(a).find("td:nth-child(6) input:checked").length);
   $("#attendanceTable").append(r); sortMessage.textContent="Sorted by participation";
 };
 
