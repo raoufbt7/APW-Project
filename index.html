@@ -53,65 +53,11 @@ span.error { color:red; font-size:13px; display:block; }
 <!-- Attendance Table -->
 <table id="attendanceTable">
   <tr>
-    <th>ID</th><th>Full Name</th><th>Matricule</th>
+    <th>ID</th><th>Last Name</th><th>First Name</th>
     <th colspan="6">Sessions</th>
     <th>Absences</th>
     <th colspan="6">Participation</th>
     <th>Message</th>
-  </tr>
-
-  <tr>
-    <td>1001</td><td>Boukhalfa</td><td>Amine</td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td></td>
-  </tr>
-
-  <tr>
-    <td>1002</td><td>Saidi</td><td>Rania</td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox" checked></td>
-    <td></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td></td>
-  </tr>
-
-  <tr>
-    <td>1003</td><td>Djelloul</td><td>Yacine</td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox" checked></td>
-    <td></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox" checked></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td><input type="checkbox"></td>
-    <td></td>
   </tr>
 </table>
 
@@ -169,9 +115,10 @@ span.error { color:red; font-size:13px; display:block; }
 
 <!-- Add Student Form -->
 <form id="studentForm">
-  <label>Full Name: <input type="text" id="fullname"></label><span id="fullnameError" class="error"></span>
-  <label>Matricule: <input type="text" id="matricule"></label><span id="matriculeError" class="error"></span>
-  <label>Group ID (optional): <input type="text" id="group_id"></label>
+  <label>ID: <input type="text" id="sid"></label><span id="sidError" class="error"></span>
+  <label>Last Name: <input type="text" id="lname"></label><span id="lnameError" class="error"></span>
+  <label>First Name: <input type="text" id="fname"></label><span id="fnameError" class="error"></span>
+  <label>Email: <input type="email" id="email"></label><span id="emailError" class="error"></span>
   <input type="submit" value="Add Student">
 </form>
 
@@ -184,11 +131,14 @@ span.error { color:red; font-size:13px; display:block; }
 // Ensure important DOM elements are referenced explicitly
 const attendanceTable = document.getElementById('attendanceTable');
 const studentForm = document.getElementById('studentForm');
-const fullname = document.getElementById('fullname');
-const fullnameError = document.getElementById('fullnameError');
-const matricule = document.getElementById('matricule');
-const matriculeError = document.getElementById('matriculeError');
-const group_id = document.getElementById('group_id');
+const sid = document.getElementById('sid');
+const sidError = document.getElementById('sidError');
+const lname = document.getElementById('lname');
+const lnameError = document.getElementById('lnameError');
+const fname = document.getElementById('fname');
+const fnameError = document.getElementById('fnameError');
+const email = document.getElementById('email');
+const emailError = document.getElementById('emailError');
 const showReport = document.getElementById('showReport');
 const reportSection = document.getElementById('reportSection');
 const reportChart = document.getElementById('reportChart');
@@ -249,38 +199,21 @@ $("#attendanceTable tr").click(function(){
 });
 
 /* Add Student */
-studentForm.addEventListener("submit",e=>{
-  e.preventDefault();
-  fullnameError.textContent=matriculeError.textContent="";
-
-  if(!fullname.value.trim()) return fullnameError.textContent="Full name required.";
-  if(!/^[A-Za-z0-9\s\-]+$/.test(matricule.value)) return matriculeError.textContent="Invalid matricule.";
-
-  // send the new student to server so it is stored in DB
-  const payload = { fullname: fullname.value.trim(), matricule: matricule.value.trim(), group_id: group_id.value ? Number(group_id.value) : null };
-  postStudentToServer(payload).then(res=>{
-    if(!res.success){
-      if(res.error && res.error.indexOf('exists')!==-1) matriculeError.textContent='Matricule already exists on server.';
-      else matriculeError.textContent=res.error||'Could not save student to server.';
-      return;
-    }
-    // server should return the created student with id
-    const stud = res.student || { id: res.id, fullname: payload.fullname, matricule: payload.matricule, group_id: payload.group_id };
-    addStudentRowFromData(stud);
-    if(window.serverStudents && Array.isArray(window.serverStudents)) window.serverStudents.push(stud);
-    studentForm.reset();
-  }).catch(err=>{
-    matriculeError.textContent='Network error saving student.';
-    console.error(err);
-  });
-});
-
-// Load students stored in localStorage and append them to the table
 function addStudentRowFromData(data){
   const r = attendanceTable.insertRow(-1);
-  r.insertCell(0).textContent = data.id;
-  r.insertCell(1).textContent = data.fullname || '';
-  r.insertCell(2).textContent = data.matricule || '';
+  r.insertCell(0).textContent = data.matricule || data.id || '';
+  let lnameVal = '';
+  let fnameVal = '';
+  if (data.fullname) {
+    const parts = data.fullname.trim().split(/\s+/);
+    lnameVal = parts[0] || '';
+    fnameVal = parts.slice(1).join(' ') || '';
+  } else {
+    lnameVal = data.lname || '';
+    fnameVal = data.fname || '';
+  }
+  r.insertCell(1).textContent = lnameVal;
+  r.insertCell(2).textContent = fnameVal;
   for(let i=0;i<6;i++){
     const c=r.insertCell(3+i), b=document.createElement("input");
     b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
@@ -294,21 +227,38 @@ function addStudentRowFromData(data){
   updateRow(r);
 }
 
-function getStoredStudents(){
-  try{ const s = localStorage.getItem('awp_students'); return s?JSON.parse(s):[]; }catch(e){ return []; }
-}
-function saveStoredStudents(arr){
-  try{ localStorage.setItem('awp_students', JSON.stringify(arr)); }catch(e){ console.error('Could not save students', e); }
-}
-
 async function postStudentToServer(data){
   try{
-    const res = await fetch('add_student.php',{
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
-    });
+    const res = await fetch('add_student.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
     return await res.json();
   }catch(e){ return { success:false, error: 'Network error' }; }
 }
+
+studentForm.addEventListener("submit",e=>{
+  e.preventDefault();
+  sidError.textContent=lnameError.textContent=fnameError.textContent=emailError.textContent="";
+
+  if(!/^[0-9]+$/.test(sid.value)) return sidError.textContent="Numbers only.";
+  if(!/^[A-Za-z]+$/.test(lname.value)) return lnameError.textContent="Letters only.";
+  if(!/^[A-Za-z]+$/.test(fname.value)) return fnameError.textContent="Letters only.";
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) return emailError.textContent="Invalid email.";
+
+  const payload = { id: sid.value, lname: lname.value, fname: fname.value, email: email.value };
+  postStudentToServer(payload).then(res=>{
+    if(!res.success){
+      if(res.error && res.error.indexOf('exists')!==-1) sidError.textContent='Student ID already exists on server.';
+      else sidError.textContent=res.error||'Could not save student to server.';
+      return;
+    }
+    const stud = res.student || { id: payload.id, fullname: payload.lname + ' ' + payload.fname, matricule: payload.id, email: payload.email };
+    addStudentRowFromData(stud);
+    if(window.serverStudents && Array.isArray(window.serverStudents)) window.serverStudents.push(stud);
+    studentForm.reset();
+  }).catch(err=>{
+    sidError.textContent='Network error saving student.';
+    console.error(err);
+  });
+});
 
 // Load students from server and migrate any localStorage students
 (async function loadAndMigrate(){
@@ -350,7 +300,10 @@ takeAttendanceBtn.onclick = async () => {
   students.forEach(s=>{
     const tr = document.createElement('tr');
     const tdId = document.createElement('td'); tdId.style.textAlign='left'; tdId.textContent = s.id; tr.appendChild(tdId);
-    const tdName = document.createElement('td'); tdName.style.textAlign='left'; tdName.textContent = s.lname + ' ' + s.fname; tr.appendChild(tdName);
+    const tdName = document.createElement('td'); tdName.style.textAlign='left';
+    // support fullname returned from DB or legacy lname/fname
+    tdName.textContent = (s.fullname && s.fullname.trim()) ? s.fullname : ((s.lname||'') + ' ' + (s.fname||'')).trim();
+    tr.appendChild(tdName);
     const tdP = document.createElement('td'); tdP.style.textAlign='center'; const rP = document.createElement('input'); rP.type='radio'; rP.name = `attendance[${s.id}]`; rP.value='present'; rP.checked=true; tdP.appendChild(rP); tr.appendChild(tdP);
     const tdA = document.createElement('td'); tdA.style.textAlign='center'; const rA = document.createElement('input'); rA.type='radio'; rA.name = `attendance[${s.id}]`; rA.value='absent'; tdA.appendChild(rA); tr.appendChild(tdA);
     tbl.appendChild(tr);
