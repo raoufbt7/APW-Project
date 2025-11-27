@@ -1,0 +1,17 @@
+[
+    {
+        "student_id": 1,
+        "presence": 1,
+        "participation": 0
+    },
+    {
+        "student_id": 2,
+        "presence": 1,
+        "participation": 0
+    },
+    {
+        "student_id": 3,
+        "presence": 1,
+        "participation": 0
+    }
+]

@@ -1,0 +1,14 @@
+[
+    {
+        "student_id": "1",
+        "status": "present"
+    },
+    {
+        "student_id": "2",
+        "status": "present"
+    },
+    {
+        "student_id": "3",
+        "status": "present"
+    }
+]
