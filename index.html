@@ -53,7 +53,7 @@ span.error { color:red; font-size:13px; display:block; }
 <!-- Attendance Table -->
 <table id="attendanceTable">
   <tr>
-    <th>ID</th><th>Last Name</th><th>First Name</th>
+    <th>ID</th><th>Full Name</th><th>Matricule</th>
     <th colspan="6">Sessions</th>
     <th>Absences</th>
     <th colspan="6">Participation</th>
@@ -143,6 +143,23 @@ span.error { color:red; font-size:13px; display:block; }
   </div>
 </div>
 
+<!-- Session Management -->
+<div id="sessionArea" style="margin-top:18px;">
+  <h3>Sessions</h3>
+  <form id="sessionForm" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+    <label>Course ID: <input type="number" id="course_id" style="width:90px"></label>
+    <label>Group ID: <input type="number" id="session_group_id" style="width:90px"></label>
+    <label>Professor ID: <input type="number" id="opened_by" style="width:90px"></label>
+    <label>Date (optional): <input type="date" id="session_date"></label>
+    <input type="submit" value="Create Session">
+  </form>
+
+  <table id="sessionsTable" style="width:100%; margin-top:10px; border-collapse:collapse; background:white;">
+    <thead><tr><th>ID</th><th>Course</th><th>Group</th><th>Date</th><th>Opened By</th><th>Status</th><th>Action</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
 <br>
 
 <button id="highlightExcellent">Highlight Excellent Students</button>
@@ -152,10 +169,9 @@ span.error { color:red; font-size:13px; display:block; }
 
 <!-- Add Student Form -->
 <form id="studentForm">
-  <label>ID: <input type="text" id="sid"></label><span id="sidError" class="error"></span>
-  <label>Last Name: <input type="text" id="lname"></label><span id="lnameError" class="error"></span>
-  <label>First Name: <input type="text" id="fname"></label><span id="fnameError" class="error"></span>
-  <label>Email: <input type="email" id="email"></label><span id="emailError" class="error"></span>
+  <label>Full Name: <input type="text" id="fullname"></label><span id="fullnameError" class="error"></span>
+  <label>Matricule: <input type="text" id="matricule"></label><span id="matriculeError" class="error"></span>
+  <label>Group ID (optional): <input type="text" id="group_id"></label>
   <input type="submit" value="Add Student">
 </form>
 
@@ -168,14 +184,11 @@ span.error { color:red; font-size:13px; display:block; }
 // Ensure important DOM elements are referenced explicitly
 const attendanceTable = document.getElementById('attendanceTable');
 const studentForm = document.getElementById('studentForm');
-const sid = document.getElementById('sid');
-const sidError = document.getElementById('sidError');
-const lname = document.getElementById('lname');
-const lnameError = document.getElementById('lnameError');
-const fname = document.getElementById('fname');
-const fnameError = document.getElementById('fnameError');
-const email = document.getElementById('email');
-const emailError = document.getElementById('emailError');
+const fullname = document.getElementById('fullname');
+const fullnameError = document.getElementById('fullnameError');
+const matricule = document.getElementById('matricule');
+const matriculeError = document.getElementById('matriculeError');
+const group_id = document.getElementById('group_id');
 const showReport = document.getElementById('showReport');
 const reportSection = document.getElementById('reportSection');
 const reportChart = document.getElementById('reportChart');
@@ -188,6 +201,12 @@ const takeAttendanceBtn = document.getElementById('takeAttendanceBtn');
 const attendanceFormContainer = document.getElementById('attendanceFormContainer');
 const attendanceForm = document.getElementById('attendanceForm');
 const attendanceMsg = document.getElementById('attendanceMsg');
+const sessionForm = document.getElementById('sessionForm');
+const sessionsTableBody = document.querySelector('#sessionsTable tbody');
+const course_id_input = document.getElementById('course_id');
+const session_group_input = document.getElementById('session_group_id');
+const opened_by_input = document.getElementById('opened_by');
+const session_date_input = document.getElementById('session_date');
 function updateRow(row){
   const sess=[...row.querySelectorAll("td:nth-child(n+4):nth-child(-n+9) input")];
   const abs=sess.filter(cb=>!cb.checked).length;
@@ -232,26 +251,26 @@ $("#attendanceTable tr").click(function(){
 /* Add Student */
 studentForm.addEventListener("submit",e=>{
   e.preventDefault();
-  sidError.textContent=lnameError.textContent=fnameError.textContent=emailError.textContent="";
+  fullnameError.textContent=matriculeError.textContent="";
 
-  if(!/^[0-9]+$/.test(sid.value)) return sidError.textContent="Numbers only.";
-  if(!/^[A-Za-z]+$/.test(lname.value)) return lnameError.textContent="Letters only.";
-  if(!/^[A-Za-z]+$/.test(fname.value)) return fnameError.textContent="Letters only.";
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) return emailError.textContent="Invalid email.";
+  if(!fullname.value.trim()) return fullnameError.textContent="Full name required.";
+  if(!/^[A-Za-z0-9\s\-]+$/.test(matricule.value)) return matriculeError.textContent="Invalid matricule.";
 
-  // send the new student to server so it is stored in students.json
-  const payload = { id: sid.value, lname: lname.value, fname: fname.value, email: email.value };
+  // send the new student to server so it is stored in DB
+  const payload = { fullname: fullname.value.trim(), matricule: matricule.value.trim(), group_id: group_id.value ? Number(group_id.value) : null };
   postStudentToServer(payload).then(res=>{
     if(!res.success){
-      if(res.error && res.error.indexOf('exists')!==-1) sidError.textContent='Student ID already exists on server.';
-      else sidError.textContent=res.error||'Could not save student to server.';
+      if(res.error && res.error.indexOf('exists')!==-1) matriculeError.textContent='Matricule already exists on server.';
+      else matriculeError.textContent=res.error||'Could not save student to server.';
       return;
     }
-    addStudentRowFromData(payload);
-    if(window.serverStudents && Array.isArray(window.serverStudents)) window.serverStudents.push(payload);
+    // server should return the created student with id
+    const stud = res.student || { id: res.id, fullname: payload.fullname, matricule: payload.matricule, group_id: payload.group_id };
+    addStudentRowFromData(stud);
+    if(window.serverStudents && Array.isArray(window.serverStudents)) window.serverStudents.push(stud);
     studentForm.reset();
   }).catch(err=>{
-    sidError.textContent='Network error saving student.';
+    matriculeError.textContent='Network error saving student.';
     console.error(err);
   });
 });
@@ -260,8 +279,8 @@ studentForm.addEventListener("submit",e=>{
 function addStudentRowFromData(data){
   const r = attendanceTable.insertRow(-1);
   r.insertCell(0).textContent = data.id;
-  r.insertCell(1).textContent = data.lname;
-  r.insertCell(2).textContent = data.fname;
+  r.insertCell(1).textContent = data.fullname || '';
+  r.insertCell(2).textContent = data.matricule || '';
   for(let i=0;i<6;i++){
     const c=r.insertCell(3+i), b=document.createElement("input");
     b.type="checkbox"; b.addEventListener("change",()=>updateRow(r)); c.appendChild(b);
@@ -284,7 +303,7 @@ function saveStoredStudents(arr){
 
 async function postStudentToServer(data){
   try{
-    const res = await fetch('student_api.php',{
+    const res = await fetch('add_student.php',{
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data)
     });
     return await res.json();
@@ -294,20 +313,20 @@ async function postStudentToServer(data){
 // Load students from server and migrate any localStorage students
 (async function loadAndMigrate(){
   try{
-    const r = await fetch('student_api.php');
+    const r = await fetch('list_students.php');
     const j = await r.json();
     const serverStudents = (j && j.success && Array.isArray(j.students)) ? j.students : [];
     serverStudents.forEach(s=>addStudentRowFromData(s));
     // expose for attendance form building
     window.serverStudents = serverStudents;
 
-    // migrate localStorage students into server
+    // migrate localStorage students into server (if any)
     const local = getStoredStudents();
     for(const s of local){
-      const exists = serverStudents.find(ss=>String(ss.id) === String(s.id));
+      const exists = serverStudents.find(ss=>String(ss.id) === String(s.id) || String(ss.matricule) === String(s.matricule));
       if(!exists){
-        const res = await postStudentToServer(s);
-        if(res && res.success){ addStudentRowFromData(s); }
+        const res = await postStudentToServer({ fullname: s.fullname || (s.lname + ' ' + s.fname), matricule: s.matricule || s.id, group_id: s.group_id || null });
+        if(res && res.success && res.student){ addStudentRowFromData(res.student); }
       }
     }
     if(local.length) saveStoredStudents([]); // clear migrated local cache
@@ -323,7 +342,7 @@ takeAttendanceBtn.onclick = async () => {
   // ensure we have fresh students list
   let students = window.serverStudents;
   if (!students) {
-  try{ const r = await fetch('student_api.php'); const j=await r.json(); students=(j && j.success && Array.isArray(j.students))?j.students:[]; window.serverStudents=students; }catch(e){ students=[]; }
+    try{ const r = await fetch('list_students.php'); const j=await r.json(); students=(j && j.success && Array.isArray(j.students))?j.students:[]; window.serverStudents=students; }catch(e){ students=[]; }
   }
   const tbl = document.getElementById('attendanceList');
   // clear existing rows except header
@@ -361,6 +380,57 @@ attendanceForm.addEventListener('submit', async function(e){
     }
   }catch(err){ attendanceMsg.style.color='red'; attendanceMsg.textContent='Network error saving attendance.'; console.error(err); }
 });
+
+  // Sessions: fetch and render
+  async function fetchSessions(){
+    try{
+      const r = await fetch('list_sessions.php');
+      const j = await r.json();
+      const sessions = (j && j.success && Array.isArray(j.sessions)) ? j.sessions : [];
+      sessionsTableBody.innerHTML = '';
+      sessions.forEach(s=>{
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${s.id}</td><td>${s.course_id}</td><td>${s.group_id}</td><td>${s.date}</td><td>${s.opened_by}</td><td>${s.status}</td><td></td>`;
+        const actionTd = tr.querySelector('td:last-child');
+        if(s.status === 'open'){
+          const btn = document.createElement('button'); btn.textContent='Close'; btn.addEventListener('click',()=>closeSession(s.id)); actionTd.appendChild(btn);
+        } else {
+          actionTd.textContent = '-';
+        }
+        sessionsTableBody.appendChild(tr);
+      });
+    }catch(err){ console.error('Could not load sessions', err); }
+  }
+
+  // Create session
+  sessionForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+    const payload = {
+      course_id: Number(course_id_input.value) || 0,
+      group_id: Number(session_group_input.value) || 0,
+      opened_by: Number(opened_by_input.value) || 0,
+    };
+    if(session_date_input.value) payload.date = session_date_input.value;
+    try{
+      const r = await fetch('create_session.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      const j = await r.json();
+      if(j && j.success){ sessionForm.reset(); fetchSessions(); }
+      else alert('Could not create session: ' + (j.error||'unknown'));
+    }catch(err){ alert('Network or server error creating session'); console.error(err); }
+  });
+
+  // Close session
+  async function closeSession(id){
+    try{
+      const r = await fetch('close_session.php',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ session_id: id }) });
+      const j = await r.json();
+      if(j && j.success){ fetchSessions(); }
+      else alert('Could not close session: ' + (j.error||'unknown'));
+    }catch(err){ alert('Network or server error closing session'); console.error(err); }
+  }
+
+  // initial load
+  fetchSessions();
 
 /* Report Chart */
 showReport.onclick=()=>{
